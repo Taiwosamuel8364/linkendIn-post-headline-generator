@@ -24,8 +24,8 @@ export const mastra = new Mastra({
     default: { enabled: true },
   },
   server: {
-    host: "0.0.0.0",
-    port: 4111,
+    host: process.env.HOST || "0.0.0.0",
+    port: process.env.PORT ? parseInt(process.env.PORT) : 4111,
     apiRoutes: [
       {
         path: "/webhook/linkedin-headline",
