@@ -3,7 +3,7 @@ import { z } from "zod";
 
 // Define the input schema for the workflow
 const inputSchema = z.object({
-  topic: z.string().describe("The main topic or theme for the LinkedIn post"),
+  text: z.string().describe("The main topic or theme for the LinkedIn post"),
   targetAudience: z
     .string()
     .optional()
@@ -27,25 +27,25 @@ const generateHeadlinesStep = createStep({
   inputSchema: inputSchema,
   outputSchema: z.object({
     headlines: z.array(z.string()),
-    topic: z.string(),
+    text: z.string(),
     targetAudience: z.string().optional(),
     tone: z.enum(["professional", "casual", "inspirational", "educational"]),
   }),
   execute: async ({ inputData }) => {
-    const { topic, targetAudience, tone } = inputData;
+    const { text, targetAudience, tone } = inputData;
 
     // Generate multiple headline variations
     const headlines = [
-      `${topic}: What You Need to Know`,
-      `The Ultimate Guide to ${topic}`,
-      `How ${topic} Changed My Perspective`,
-      `${topic} - Insights from the Field`,
-      `Why ${topic} Matters Now More Than Ever`,
+      `${text}: What You Need to Know`,
+      `The Ultimate Guide to ${text}`,
+      `How ${text} Changed My Perspective`,
+      `${text} - Insights from the Field`,
+      `Why ${text} Matters Now More Than Ever`,
     ];
 
     return {
       headlines,
-      topic,
+      text,
       targetAudience,
       tone: tone || "professional",
     };
@@ -58,7 +58,7 @@ const selectBestHeadlineStep = createStep({
   description: "Select the best headline from generated options",
   inputSchema: z.object({
     headlines: z.array(z.string()),
-    topic: z.string(),
+    text: z.string(),
     targetAudience: z.string().optional(),
     tone: z.enum(["professional", "casual", "inspirational", "educational"]),
   }),
