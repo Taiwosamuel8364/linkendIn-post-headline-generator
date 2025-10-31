@@ -1,4 +1,4 @@
-import { Workflow, Step } from "@mastra/core";
+import { createWorkflow, createStep } from "@mastra/core/workflows";
 import { z } from "zod";
 
 // Define the input schema for the workflow
@@ -20,49 +20,68 @@ const outputSchema = z.object({
   bestHeadline: z.string().describe("The recommended headline"),
 });
 
-export const linkedinHeadlineWorkflow = new Workflow({
-  name: "linkedin-headline-generator",
-  triggerSchema: inputSchema,
+// Step 1: Generate headlines
+const generateHeadlinesStep = createStep({
+  id: "generate-headlines",
+  description: "Generate multiple headline variations based on topic",
+  inputSchema: inputSchema,
+  outputSchema: z.object({
+    headlines: z.array(z.string()),
+    topic: z.string(),
+    targetAudience: z.string().optional(),
+    tone: z.enum(["professional", "casual", "inspirational", "educational"]),
+  }),
+  execute: async ({ inputData }) => {
+    const { topic, targetAudience, tone } = inputData;
+
+    // Generate multiple headline variations
+    const headlines = [
+      `${topic}: What You Need to Know`,
+      `The Ultimate Guide to ${topic}`,
+      `How ${topic} Changed My Perspective`,
+      `${topic} - Insights from the Field`,
+      `Why ${topic} Matters Now More Than Ever`,
+    ];
+
+    return {
+      headlines,
+      topic,
+      targetAudience,
+      tone: tone || "professional",
+    };
+  },
+});
+
+// Step 2: Select best headline
+const selectBestHeadlineStep = createStep({
+  id: "select-best-headline",
+  description: "Select the best headline from generated options",
+  inputSchema: z.object({
+    headlines: z.array(z.string()),
+    topic: z.string(),
+    targetAudience: z.string().optional(),
+    tone: z.enum(["professional", "casual", "inspirational", "educational"]),
+  }),
+  outputSchema: outputSchema,
+  execute: async ({ inputData }) => {
+    const { headlines } = inputData;
+
+    // Simple selection logic - in production, you'd use AI to rank these
+    const bestHeadline = headlines[0];
+
+    return {
+      headlines,
+      bestHeadline,
+    };
+  },
+});
+
+// Create the workflow
+export const linkedinHeadlineWorkflow = createWorkflow({
+  id: "linkedin-headline-generator",
+  inputSchema: inputSchema,
+  outputSchema: outputSchema,
 })
-  .step(
-    Step.create({
-      id: "generate-headlines",
-      execute: async ({ context }) => {
-        const { topic, targetAudience, tone } =
-          context.machineContext.triggerData;
-
-        // Generate multiple headline variations
-        const headlines = [
-          `${topic}: What You Need to Know`,
-          `The Ultimate Guide to ${topic}`,
-          `How ${topic} Changed My Perspective`,
-          `${topic} - Insights from the Field`,
-          `Why ${topic} Matters Now More Than Ever`,
-        ];
-
-        return {
-          headlines,
-          topic,
-          targetAudience,
-          tone,
-        };
-      },
-    })
-  )
-  .step(
-    Step.create({
-      id: "select-best-headline",
-      execute: async ({ context }) => {
-        const { headlines } = context.stepResults["generate-headlines"];
-
-        // Simple selection logic - in production, you'd use AI to rank these
-        const bestHeadline = headlines[0];
-
-        return {
-          headlines,
-          bestHeadline,
-        };
-      },
-    })
-  )
+  .then(generateHeadlinesStep)
+  .then(selectBestHeadlineStep)
   .commit();
