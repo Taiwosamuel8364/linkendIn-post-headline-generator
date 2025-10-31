@@ -84,4 +84,17 @@ export const linkedinHeadlineWorkflow = createWorkflow({
 })
   .then(generateHeadlinesStep)
   .then(selectBestHeadlineStep)
+  .then({
+    id: "return-best-headline",
+    description: "Return the best headline in a format Telex can display",
+    inputSchema: outputSchema,
+    outputSchema: z.object({
+      text: z.string(),
+    }),
+    execute: async ({ inputData }) => {
+      return {
+        text: inputData.bestHeadline,
+      };
+    },
+  })
   .commit();
