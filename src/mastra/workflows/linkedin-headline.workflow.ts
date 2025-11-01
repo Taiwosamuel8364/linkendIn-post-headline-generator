@@ -32,6 +32,11 @@ const generateHeadlinesStep = createStep({
     tone: z.enum(["professional", "casual", "inspirational", "educational"]),
   }),
   execute: async ({ inputData }) => {
+    console.log(
+      "🔄 [WORKFLOW] Generate Headlines Step - Input:",
+      JSON.stringify(inputData, null, 2)
+    );
+
     const { text, targetAudience, tone } = inputData;
 
     // Generate multiple headline variations
@@ -43,12 +48,19 @@ const generateHeadlinesStep = createStep({
       `Why ${text} Matters Now More Than Ever`,
     ];
 
-    return {
+    const output = {
       headlines,
       text,
       targetAudience,
       tone: tone || "professional",
     };
+
+    console.log(
+      "✅ [WORKFLOW] Generate Headlines Step - Output:",
+      JSON.stringify(output, null, 2)
+    );
+
+    return output;
   },
 });
 
@@ -64,15 +76,27 @@ const selectBestHeadlineStep = createStep({
   }),
   outputSchema: outputSchema,
   execute: async ({ inputData }) => {
+    console.log(
+      "🔄 [WORKFLOW] Select Best Headline Step - Input:",
+      JSON.stringify(inputData, null, 2)
+    );
+
     const { headlines } = inputData;
 
     // Simple selection logic - in production, you'd use AI to rank these
     const bestHeadline = headlines[0];
 
-    return {
+    const output = {
       headlines,
       bestHeadline,
     };
+
+    console.log(
+      "✅ [WORKFLOW] Select Best Headline Step - Output:",
+      JSON.stringify(output, null, 2)
+    );
+
+    return output;
   },
 });
 
@@ -92,9 +116,21 @@ export const linkedinHeadlineWorkflow = createWorkflow({
       message: z.string(), // ✅ Telex-friendly key
     }),
     execute: async ({ inputData }) => {
-      return {
+      console.log(
+        "🔄 [WORKFLOW] Return Best Headline Step - Input:",
+        JSON.stringify(inputData, null, 2)
+      );
+
+      const output = {
         message: inputData.bestHeadline,
       };
+
+      console.log(
+        "✅ [WORKFLOW] Return Best Headline Step - Output:",
+        JSON.stringify(output, null, 2)
+      );
+
+      return output;
     },
   })
   .commit();

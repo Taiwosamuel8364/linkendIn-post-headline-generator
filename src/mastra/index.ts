@@ -32,6 +32,11 @@ export const mastra = new Mastra({
         method: "POST",
         createHandler: async ({ mastra }) => {
           return async (request: any) => {
+            const timestamp = new Date().toISOString();
+            console.log(`\n${"=".repeat(60)}`);
+            console.log(`📨 [WEBHOOK] New request received at ${timestamp}`);
+            console.log(`${"=".repeat(60)}`);
+
             try {
               // Try to parse the body in different ways
               let body;
@@ -41,52 +46,53 @@ export const mastra = new Mastra({
               // Try to get the raw request if it's wrapped
               const rawReq = request.raw || request.req || request;
 
-              // Try the req property first (might be the actual HTTP request)
-              if (request.req && typeof request.req.body !== "undefined") {
-                console.log("Using request.req.body");
-                body = request.req.body;
+              // Method 1: Try request.text() first (Hono-style)
+              if (typeof rawReq.text === "function") {
+                console.log("Using request.text()");
+                const textBody = await rawReq.text();
+                console.log("Raw text body:", textBody);
+                body = JSON.parse(textBody);
               }
-              // Try parseBody if available
-              else if (typeof request.parseBody === "function") {
-                console.log("Using request.parseBody()");
-                body = await request.parseBody();
+              // Method 2: Try request.body (if it exists)
+              else if (rawReq.body) {
+                console.log("Using request.body");
+                body = rawReq.body;
               }
-              // Try to read the raw body text and parse it
-              else if (rawReq && typeof rawReq.text === "function") {
-                console.log("Using rawReq.text()");
-                try {
-                  const textContent = await rawReq.text();
-                  console.log("Raw text content:", textContent);
-                  body = textContent ? JSON.parse(textContent) : {};
-                } catch (e) {
-                  console.error("Failed to parse text:", e);
-                  body = {};
-                }
-              }
-              // Hono c.req.json() pattern
-              else if (request.req && typeof request.req.json === "function") {
-                console.log("Using request.req.json()");
-                body = await request.req.json();
-              } else {
-                console.log("Unknown request format, trying request.json()");
-                body = {};
+              // Method 3: Try reading from a stream
+              else if (rawReq.on) {
+                console.log("Using stream reading");
+                body = await new Promise((resolve, reject) => {
+                  let data = "";
+                  rawReq.on("data", (chunk: any) => {
+                    data += chunk;
+                  });
+                  rawReq.on("end", () => {
+                    try {
+                      resolve(JSON.parse(data));
+                    } catch (e) {
+                      reject(e);
+                    }
+                  });
+                  rawReq.on("error", reject);
+                });
               }
 
-              console.log("Parsed body:", JSON.stringify(body, null, 2));
+              console.log(
+                "📥 [WEBHOOK] Parsed request body:",
+                JSON.stringify(body, null, 2)
+              );
 
-              // Validate that we have the required fields
-              if (!body.text) {
-                console.error("Missing text field. Body:", body);
+              if (!body || !body.text) {
+                console.log(
+                  "❌ [WEBHOOK] Error: Missing required field 'text'"
+                );
+                console.log("Received body:", JSON.stringify(body, null, 2));
                 return new Response(
-                  JSON.stringify(
-                    {
-                      error: "Missing required field: text",
-                      received: body,
-                      hint: 'Send POST request with JSON body: {"text":"Your Topic","tone":"professional"}',
-                    },
-                    null,
-                    2
-                  ),
+                  JSON.stringify({
+                    error: "Missing required field: text",
+                    hint: 'Send POST request with JSON body: {"text":"Your Topic","tone":"professional"}',
+                    received: body,
+                  }),
                   {
                     status: 400,
                     headers: { "Content-Type": "application/json" },
@@ -94,26 +100,47 @@ export const mastra = new Mastra({
                 );
               }
 
-              // Get the workflow and create a run instance
+              console.log("🚀 [WEBHOOK] Starting workflow execution...");
+
+              // Get the workflow and execute it
               const workflow = mastra.getWorkflow("linkedinHeadlineWorkflow");
               const run = await workflow.createRunAsync();
+              const result = await run.start({ inputData: body });
 
-              // Execute the workflow
-              const result = await run.start({
-                inputData: body,
-              });
+              console.log(
+                "✅ [WEBHOOK] Workflow execution completed successfully"
+              );
+              console.log(
+                "📤 [WEBHOOK] Response:",
+                JSON.stringify(result, null, 2)
+              );
+              console.log(`${"=".repeat(60)}\n`);
 
-              return new Response(JSON.stringify(result, null, 2), {
+              return new Response(JSON.stringify(result), {
                 status: 200,
                 headers: { "Content-Type": "application/json" },
               });
             } catch (error) {
-              console.error("Workflow execution error:", error);
+              console.error("❌ [WEBHOOK] Error occurred:");
+              console.error(
+                "Error type:",
+                error instanceof Error ? error.constructor.name : typeof error
+              );
+              console.error(
+                "Error message:",
+                error instanceof Error ? error.message : String(error)
+              );
+              console.error(
+                "Error stack:",
+                error instanceof Error ? error.stack : "No stack trace"
+              );
+              console.log(`${"=".repeat(60)}\n`);
+
               return new Response(
                 JSON.stringify({
                   error: "Failed to execute workflow",
                   message:
-                    error instanceof Error ? error.message : "Unknown error",
+                    error instanceof Error ? error.message : String(error),
                 }),
                 {
                   status: 500,
