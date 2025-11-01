@@ -89,11 +89,11 @@ export const linkedinHeadlineWorkflow = createWorkflow({
     description: "Return the best headline in a format Telex can display",
     inputSchema: outputSchema,
     outputSchema: z.object({
-      text: z.string(),
+      message: z.string(), // ✅ Telex-friendly key
     }),
     execute: async ({ inputData }) => {
       return {
-        text: inputData.bestHeadline,
+        message: inputData.bestHeadline,
       };
     },
   })
