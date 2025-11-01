@@ -1,23 +1,26 @@
 import { createWorkflow, createStep } from "@mastra/core/workflows";
 import { z } from "zod";
 
-// Define the input schema for the workflow
-const inputSchema = z.object({
-  text: z.string().describe("The main topic or theme for the LinkedIn post"),
-  targetAudience: z
-    .string()
-    .optional()
-    .describe("Target audience for the post"),
-  tone: z
-    .enum(["professional", "casual", "inspirational", "educational"])
-    .optional()
-    .default("professional"),
-});
+// ✅ Input schema now supports both plain text and object input
+const inputSchema = z.union([
+  z.string(),
+  z.object({
+    text: z.string().describe("The main topic or theme for the LinkedIn post"),
+    targetAudience: z
+      .string()
+      .optional()
+      .describe("Target audience for the post"),
+    tone: z
+      .enum(["professional", "casual", "inspirational", "educational"])
+      .optional()
+      .default("professional"),
+  }),
+]);
 
-// Define the output schema
+// ✅ Output schema for the final workflow - matches what Telex expects
 const outputSchema = z.object({
-  headlines: z.array(z.string()).describe("Generated LinkedIn post headlines"),
-  bestHeadline: z.string().describe("The recommended headline"),
+  message: z.string(), // ✅ Telex expects this key
+  headlines: z.array(z.string()).optional(), // Include all headlines too
 });
 
 // Step 1: Generate headlines
@@ -32,34 +35,35 @@ const generateHeadlinesStep = createStep({
     tone: z.enum(["professional", "casual", "inspirational", "educational"]),
   }),
   execute: async ({ inputData }) => {
-    console.log(
-      "🔄 [WORKFLOW] Generate Headlines Step - Input:",
-      JSON.stringify(inputData, null, 2)
-    );
+    console.log("🔄 [WORKFLOW] Generate Headlines Step - Input:", inputData);
 
-    const { text, targetAudience, tone } = inputData;
+    // ✅ Normalize input (handles both string and object cases)
+    const { text, targetAudience, tone } =
+      typeof inputData === "string"
+        ? {
+            text: inputData,
+            targetAudience: undefined,
+            tone: "professional" as const,
+          }
+        : inputData;
 
-    // Generate multiple headline variations
+    // ✅ Simple headline generator
     const headlines = [
-      `${text}: What You Need to Know`,
-      `The Ultimate Guide to ${text}`,
-      `How ${text} Changed My Perspective`,
-      `${text} - Insights from the Field`,
-      `Why ${text} Matters Now More Than Ever`,
+      `Just ${text} 🚀`,
+      `Highlights from my recent work: ${text}`,
+      `Proud moment: ${text}!`,
+      `${text} — lessons and reflections`,
+      `Wrapping up ${text}: my journey as a backend developer`,
     ];
 
     const output = {
       headlines,
       text,
       targetAudience,
-      tone: tone || "professional",
+      tone: tone || ("professional" as const),
     };
 
-    console.log(
-      "✅ [WORKFLOW] Generate Headlines Step - Output:",
-      JSON.stringify(output, null, 2)
-    );
-
+    console.log("✅ [WORKFLOW] Generate Headlines Step - Output:", output);
     return output;
   },
 });
@@ -74,63 +78,55 @@ const selectBestHeadlineStep = createStep({
     targetAudience: z.string().optional(),
     tone: z.enum(["professional", "casual", "inspirational", "educational"]),
   }),
-  outputSchema: outputSchema,
+  outputSchema: z.object({
+    headlines: z.array(z.string()),
+    bestHeadline: z.string(),
+  }),
   execute: async ({ inputData }) => {
-    console.log(
-      "🔄 [WORKFLOW] Select Best Headline Step - Input:",
-      JSON.stringify(inputData, null, 2)
-    );
+    console.log("🔄 [WORKFLOW] Select Best Headline Step - Input:", inputData);
 
     const { headlines } = inputData;
-
-    // Simple selection logic - in production, you'd use AI to rank these
-    const bestHeadline = headlines[0];
+    const bestHeadline = headlines[0]; // could add AI ranking later
 
     const output = {
       headlines,
       bestHeadline,
     };
 
-    console.log(
-      "✅ [WORKFLOW] Select Best Headline Step - Output:",
-      JSON.stringify(output, null, 2)
-    );
-
+    console.log("✅ [WORKFLOW] Select Best Headline Step - Output:", output);
     return output;
   },
 });
 
-// Create the workflow
+// Step 3: Format result for Telex display
+const returnHeadlineStep = createStep({
+  id: "return-best-headline",
+  description: "Return the best headline in a format Telex can display",
+  inputSchema: z.object({
+    headlines: z.array(z.string()),
+    bestHeadline: z.string(),
+  }),
+  outputSchema: outputSchema,
+  execute: async ({ inputData }) => {
+    console.log("🔄 [WORKFLOW] Return Best Headline Step - Input:", inputData);
+
+    const output = {
+      message: inputData.bestHeadline,
+      headlines: inputData.headlines,
+    };
+
+    console.log("✅ [WORKFLOW] Return Best Headline Step - Output:", output);
+    return output;
+  },
+});
+
+// ✅ Create the workflow
 export const linkedinHeadlineWorkflow = createWorkflow({
-  id: "linkedin-headline-generator",
+  id: "LnkdHdlGenX5A3pQ", // 🔗 must match your JSON workflow ID
   inputSchema: inputSchema,
   outputSchema: outputSchema,
 })
   .then(generateHeadlinesStep)
   .then(selectBestHeadlineStep)
-  .then({
-    id: "return-best-headline",
-    description: "Return the best headline in a format Telex can display",
-    inputSchema: outputSchema,
-    outputSchema: z.object({
-      message: z.string(), // ✅ Telex-friendly key
-    }),
-    execute: async ({ inputData }) => {
-      console.log(
-        "🔄 [WORKFLOW] Return Best Headline Step - Input:",
-        JSON.stringify(inputData, null, 2)
-      );
-
-      const output = {
-        message: inputData.bestHeadline,
-      };
-
-      console.log(
-        "✅ [WORKFLOW] Return Best Headline Step - Output:",
-        JSON.stringify(output, null, 2)
-      );
-
-      return output;
-    },
-  })
+  .then(returnHeadlineStep)
   .commit();
