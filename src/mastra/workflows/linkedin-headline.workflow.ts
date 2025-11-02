@@ -70,13 +70,19 @@ const generateHeadlinesStep = createStep({
           }
         : inputData;
 
-    // ✅ Generate LinkedIn-style headlines
+    // ✅ Extract key topic (take first 100 chars or first sentence)
+    const shortTopic =
+      text.length > 100
+        ? text.substring(0, 100).split(/[.!?]/)[0].trim()
+        : text.split(/[.!?]/)[0].trim();
+
+    // ✅ Generate LinkedIn-style headlines using the short topic
     const headlines = [
-      `${text} 🚀`,
-      `Just shipped: ${text}`,
-      `Excited to share: ${text}`,
-      `${text} — my latest project`,
-      `Lessons learned from ${text}`,
+      `${shortTopic} 🚀`,
+      `Just shipped: ${shortTopic}`,
+      `Excited to share: ${shortTopic}`,
+      `${shortTopic} — my latest project`,
+      `Lessons learned from ${shortTopic}`,
     ];
 
     const output = {
