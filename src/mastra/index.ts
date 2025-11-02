@@ -121,7 +121,15 @@ export const mastra = new Mastra({
                 );
               }
 
-              // Extract text - get the FIRST non-empty text part (current message)
+              console.log(
+                "📦 [WEBHOOK] Message parts:",
+                JSON.stringify(message.parts, null, 2)
+              );
+
+              // Extract text - look in both text and data parts
+              let userText = "";
+
+              // First try to find non-empty text parts
               const textParts = message.parts
                 .filter(
                   (part: any) =>
@@ -129,7 +137,29 @@ export const mastra = new Mastra({
                 )
                 .map((part: any) => part.text.trim());
 
-              const userText = textParts[0] || "";
+              if (textParts.length > 0) {
+                userText = textParts[0];
+              }
+
+              // If no text found, look in data parts
+              if (!userText) {
+                for (const part of message.parts) {
+                  if (part.kind === "data" && Array.isArray(part.data)) {
+                    // Look for text in data array
+                    const dataTexts = part.data
+                      .filter(
+                        (item: any) =>
+                          item.kind === "text" && item.text && item.text.trim()
+                      )
+                      .map((item: any) => item.text.trim());
+
+                    if (dataTexts.length > 0) {
+                      userText = dataTexts[0];
+                      break;
+                    }
+                  }
+                }
+              }
 
               if (!userText) {
                 console.log(
