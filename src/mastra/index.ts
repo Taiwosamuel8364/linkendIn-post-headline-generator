@@ -139,29 +139,41 @@ export const mastra = new Mastra({
               }
 
               const userText = textPart.text;
+              const requestId = body.id; // Capture the request ID
               console.log(`💬 [WEBHOOK] Extracted user text: "${userText}"`);
-              console.log(`� [WEBHOOK] Task ID: ${message.taskId}`);
+              console.log(`📋 [WEBHOOK] Task ID: ${message.taskId}`);
               console.log(`📧 [WEBHOOK] Message ID: ${message.messageId}`);
-              console.log(`�🚀 [WEBHOOK] Starting workflow execution...`);
+              console.log(`🚀 [WEBHOOK] Starting workflow execution...`);
 
               // Execute the workflow with the extracted text
               const workflow = mastra.getWorkflow("linkedinHeadlineWorkflow");
               const run = await workflow.createRunAsync();
-              const result = await run.start({
+              const workflowResult = await run.start({
                 inputData: userText, // Pass the text directly
               });
+
+              console.log(
+                "✅ [WORKFLOW] Raw workflow result:",
+                JSON.stringify(workflowResult, null, 2)
+              );
+
+              // Update the response with the correct request ID from the incoming request
+              const response = {
+                ...workflowResult,
+                id: requestId, // Use the request ID from Telex
+              };
 
               console.log(
                 "✅ [WEBHOOK] Workflow execution completed successfully"
               );
               console.log(
-                "📤 [WEBHOOK] Response:",
-                JSON.stringify(result, null, 2)
+                "📤 [WEBHOOK] Final response:",
+                JSON.stringify(response, null, 2)
               );
               console.log(`${"=".repeat(60)}\n`);
 
-              // The workflow already returns JSON-RPC 2.0 format
-              return new Response(JSON.stringify(result), {
+              // Return the response with correct request ID
+              return new Response(JSON.stringify(response), {
                 status: 200,
                 headers: { "Content-Type": "application/json" },
               });
