@@ -148,13 +148,18 @@ export const mastra = new Mastra({
               console.log(`📧 [WEBHOOK] Message ID: ${messageId}`);
               console.log(`🚀 [WEBHOOK] Starting workflow execution...`);
 
-              // Execute the workflow with the extracted text
-              const workflow = mastra.getWorkflow("linkedinHeadlineWorkflow");
+              // Execute the workflow with the extracted text - BLOCKING
+              const workflow = mastra.getWorkflow(
+                "linkedin-headline-generator"
+              );
               const run = await workflow.createRunAsync();
+
+              console.log("⏳ [WEBHOOK] Waiting for workflow to complete...");
               const workflowResult = await run.start({
                 inputData: userText, // Pass the text directly
               });
 
+              console.log("✅ [WEBHOOK] Workflow completed!");
               console.log(
                 "✅ [WORKFLOW] Raw workflow result:",
                 JSON.stringify(workflowResult, null, 2)
