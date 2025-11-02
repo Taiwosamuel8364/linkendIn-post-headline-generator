@@ -5,7 +5,9 @@ import { linkedinHeadlineWorkflow } from "./workflows/linkedin-headline.workflow
 import { linkedinAgent } from "./agents/linkedin-agent";
 
 export const mastra = new Mastra({
-  workflows: { linkedinHeadlineWorkflow },
+  workflows: { 
+    "linkedin-headline-generator": linkedinHeadlineWorkflow 
+  },
   agents: { linkedinAgent },
   storage: new LibSQLStore({
     // stores observability, scores, ... into memory storage, if it needs to persist, change to file:../mastra.db
@@ -38,6 +40,9 @@ export const mastra = new Mastra({
               `📨 [WEBHOOK] New A2A request received at ${timestamp}`
             );
             console.log(`${"=".repeat(60)}`);
+            console.log("🔍 [DEBUG] Request object type:", typeof request);
+            console.log("🔍 [DEBUG] Request keys:", Object.keys(request || {}));
+            console.log("🌐 [DEBUG] Webhook endpoint hit: /webhook/linkedin-headline");
 
             try {
               // Parse the JSON-RPC 2.0 request
