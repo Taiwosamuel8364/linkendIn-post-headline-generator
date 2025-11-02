@@ -121,13 +121,19 @@ export const mastra = new Mastra({
                 );
               }
 
-              // Extract text from the first text part
-              const textPart = message.parts.find(
-                (part: any) => part.kind === "text"
-              );
-              if (!textPart || !textPart.text) {
+              // Extract text - get the last non-empty text part
+              const textParts = message.parts
+                .filter(
+                  (part: any) =>
+                    part.kind === "text" && part.text && part.text.trim()
+                )
+                .map((part: any) => part.text.trim());
+
+              const userText = textParts[textParts.length - 1] || "";
+
+              if (!userText) {
                 console.log(
-                  "❌ [WEBHOOK] Error: No text part found in message"
+                  "❌ [WEBHOOK] Error: No text content found in message"
                 );
                 return new Response(
                   JSON.stringify({
@@ -135,7 +141,7 @@ export const mastra = new Mastra({
                     id: body.id,
                     error: {
                       code: -32602,
-                      message: "Invalid params - no text part in message",
+                      message: "Invalid params - no text content in message",
                     },
                   }),
                   {
@@ -145,7 +151,6 @@ export const mastra = new Mastra({
                 );
               }
 
-              const userText = textPart.text;
               const requestId = body.id; // Capture the request ID
               const taskId = message.taskId;
               const messageId = message.messageId;
