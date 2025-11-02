@@ -87,13 +87,13 @@ const generateHeadlinesStep = createStep({
           }
         : inputData;
 
-    // ✅ Simple headline generator
+    // ✅ Generate LinkedIn-style headlines
     const headlines = [
-      `Just ${text} 🚀`,
-      `Highlights from my recent work: ${text}`,
-      `Proud moment: ${text}!`,
-      `${text} — lessons and reflections`,
-      `Wrapping up ${text}: my journey as a backend developer`,
+      `${text} 🚀`,
+      `Just shipped: ${text}`,
+      `Excited to share: ${text}`,
+      `${text} — my latest project`,
+      `Lessons learned from ${text}`,
     ];
 
     const output = {
@@ -149,10 +149,10 @@ const selectBestHeadlineStep = createStep({
   },
 });
 
-// Step 3: Format result in JSON-RPC 2.0 format
+// Step 3: Format result in JSON-RPC 2.0 format with numbered headlines
 const formatJsonRpcResponseStep = createStep({
   id: "format-jsonrpc-response",
-  description: "Format the result in JSON-RPC 2.0 format for Telex",
+  description: "Format the result in JSON-RPC 2.0 format for Telex A2A",
   inputSchema: z.object({
     headlines: z.array(z.string()),
     bestHeadline: z.string(),
@@ -172,9 +172,16 @@ const formatJsonRpcResponseStep = createStep({
     const artifactId = `artifact-${Date.now()}`;
     const dataArtifactId = `data-${Date.now()}`;
 
+    // ✅ Format headlines with numbers and line breaks
+    const formattedHeadlines = headlines
+      .map((headline, index) => `${index + 1}. ${headline}`)
+      .join("\n\n");
+
+    const responseText = `Here are ${headlines.length} LinkedIn headline options for "${text}":\n\n${formattedHeadlines}\n\n💡 Recommended: ${bestHeadline}`;
+
     const output = {
       jsonrpc: "2.0" as const,
-      id: "request-001",
+      id: "request-001", // This will be replaced with the actual request ID
       result: {
         id: taskId,
         contextId: `context-${Date.now()}`,
@@ -187,7 +194,7 @@ const formatJsonRpcResponseStep = createStep({
             parts: [
               {
                 kind: "text" as const,
-                text: bestHeadline,
+                text: responseText,
               },
             ],
             kind: "message" as const,
@@ -200,7 +207,7 @@ const formatJsonRpcResponseStep = createStep({
             parts: [
               {
                 kind: "text" as const,
-                text: bestHeadline,
+                text: responseText,
               },
             ],
           },
