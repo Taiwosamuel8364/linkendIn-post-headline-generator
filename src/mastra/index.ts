@@ -160,92 +160,73 @@ export const mastra = new Mastra({
                 JSON.stringify(workflowResult, null, 2)
               );
 
-              // Check if workflowResult has the expected JSON-RPC format
-              // If not, we need to extract it from the result property
-              let finalResult;
-
-              if ((workflowResult as any).jsonrpc === "2.0") {
-                // Already in correct format
-                finalResult = workflowResult;
-              } else if (
-                workflowResult.status === "success" &&
-                (workflowResult as any).result?.jsonrpc === "2.0"
-              ) {
-                // Result is nested
-                finalResult = (workflowResult as any).result;
-              } else if (workflowResult.status === "success") {
-                // Need to construct the response from workflow output
-                console.log(
-                  "⚠️ [WEBHOOK] Workflow didn't return JSON-RPC format, constructing response"
-                );
-
-                const timestamp = new Date().toISOString();
-                const workflowOutput = (workflowResult as any).result || {};
-                const bestHeadline =
-                  workflowOutput.bestHeadline ||
-                  workflowOutput.message ||
-                  "LinkedIn Headline Generated";
-                const allHeadlines = workflowOutput.headlines || [bestHeadline];
-
-                finalResult = {
-                  jsonrpc: "2.0",
-                  id: requestId,
-                  result: {
-                    id: taskId,
-                    contextId: `context-${Date.now()}`,
-                    status: {
-                      state: "completed",
-                      timestamp: timestamp,
-                      message: {
-                        messageId: `response-${Date.now()}`,
-                        role: "agent",
-                        parts: [
-                          {
-                            kind: "text",
-                            text: bestHeadline,
-                          },
-                        ],
-                        kind: "message",
-                      },
-                    },
-                    artifacts: [
-                      {
-                        artifactId: `artifact-${Date.now()}`,
-                        name: "linkedinHeadlineResponse",
-                        parts: [
-                          {
-                            kind: "text",
-                            text: bestHeadline,
-                          },
-                        ],
-                      },
-                      {
-                        artifactId: `data-${Date.now()}`,
-                        name: "HeadlineResults",
-                        parts: [
-                          {
-                            kind: "data",
-                            data: {
-                              bestHeadline: bestHeadline,
-                              allHeadlines: allHeadlines,
-                              topic: userText,
-                              generatedAt: timestamp,
-                            },
-                          },
-                        ],
-                      },
-                    ],
-                  },
-                };
-              } else {
-                // Workflow failed
+              // Extract the simple workflow output
+              if (workflowResult.status !== "success") {
                 throw new Error("Workflow execution failed");
               }
 
-              // Update the response with the correct request ID from the incoming request
+              const result = (workflowResult as any).result || {};
+              const formattedText =
+                result?.formattedText || "Failed to generate headlines";
+              const headlines = result?.headlines || [];
+              const bestHeadline = result?.bestHeadline || formattedText;
+
+              console.log(
+                "📝 [WEBHOOK] Extracted formatted text:",
+                formattedText
+              );
+
+              // Construct JSON-RPC 2.0 response
+              const timestamp = new Date().toISOString();
               const response = {
-                ...finalResult,
-                id: requestId, // Ensure we use the request ID from Telex
+                jsonrpc: "2.0",
+                id: requestId,
+                result: {
+                  id: taskId,
+                  contextId: `context-${Date.now()}`,
+                  status: {
+                    state: "completed",
+                    timestamp: timestamp,
+                    message: {
+                      messageId: `response-${Date.now()}`,
+                      role: "agent",
+                      parts: [
+                        {
+                          kind: "text",
+                          text: formattedText,
+                        },
+                      ],
+                      kind: "message",
+                    },
+                  },
+                  artifacts: [
+                    {
+                      artifactId: `artifact-${Date.now()}`,
+                      name: "linkedinHeadlineResponse",
+                      parts: [
+                        {
+                          kind: "text",
+                          text: formattedText,
+                        },
+                      ],
+                    },
+                    {
+                      artifactId: `data-${Date.now()}`,
+                      name: "HeadlineResults",
+                      parts: [
+                        {
+                          kind: "data",
+                          data: {
+                            bestHeadline: bestHeadline,
+                            allHeadlines: headlines,
+                            topic: userText,
+                            generatedAt: timestamp,
+                          },
+                        },
+                      ],
+                    },
+                  ],
+                },
               };
 
               console.log(

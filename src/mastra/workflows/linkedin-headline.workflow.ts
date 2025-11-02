@@ -17,47 +17,11 @@ const inputSchema = z.union([
   }),
 ]);
 
-// ✅ Output schema matching JSON-RPC 2.0 format
+// ✅ Simple output schema - just the data we need
 const outputSchema = z.object({
-  jsonrpc: z.literal("2.0"),
-  id: z.string(),
-  result: z.object({
-    id: z.string(),
-    contextId: z.string().optional(),
-    status: z.object({
-      state: z.enum(["completed", "processing", "failed"]),
-      timestamp: z.string(),
-      message: z.object({
-        messageId: z.string(),
-        role: z.literal("agent"),
-        parts: z.array(
-          z.object({
-            kind: z.literal("text"),
-            text: z.string(),
-          })
-        ),
-        kind: z.literal("message"),
-      }),
-    }),
-    artifacts: z.array(
-      z.object({
-        artifactId: z.string(),
-        name: z.string(),
-        parts: z.array(
-          z.union([
-            z.object({
-              kind: z.literal("text"),
-              text: z.string(),
-            }),
-            z.object({
-              kind: z.literal("data"),
-              data: z.any(),
-            }),
-          ])
-        ),
-      })
-    ),
-  }),
+  headlines: z.array(z.string()),
+  bestHeadline: z.string(),
+  formattedText: z.string(),
 });
 
 // Step 1: Generate headlines
@@ -111,127 +75,41 @@ const generateHeadlinesStep = createStep({
   },
 });
 
-// Step 2: Select best headline
-const selectBestHeadlineStep = createStep({
-  id: "select-best-headline",
-  description: "Select the best headline from generated options",
+// Step 2: Select best headline and format output
+const selectAndFormatStep = createStep({
+  id: "select-and-format",
+  description: "Select the best headline and format the response",
   inputSchema: z.object({
     headlines: z.array(z.string()),
     text: z.string(),
     targetAudience: z.string().optional(),
     tone: z.enum(["professional", "casual", "inspirational", "educational"]),
   }),
-  outputSchema: z.object({
-    headlines: z.array(z.string()),
-    bestHeadline: z.string(),
-    text: z.string(),
-  }),
+  outputSchema: outputSchema,
   execute: async ({ inputData }) => {
     console.log(
-      "🔄 [WORKFLOW] Select Best Headline Step - Input:",
+      "🔄 [WORKFLOW] Select and Format Step - Input:",
       JSON.stringify(inputData, null, 2)
     );
 
     const { headlines, text } = inputData;
-    const bestHeadline = headlines[0]; // could add AI ranking later
-
-    const output = {
-      headlines,
-      bestHeadline,
-      text,
-    };
-
-    console.log(
-      "✅ [WORKFLOW] Select Best Headline Step - Output:",
-      JSON.stringify(output, null, 2)
-    );
-    return output;
-  },
-});
-
-// Step 3: Format result in JSON-RPC 2.0 format with numbered headlines
-const formatJsonRpcResponseStep = createStep({
-  id: "format-jsonrpc-response",
-  description: "Format the result in JSON-RPC 2.0 format for Telex A2A",
-  inputSchema: z.object({
-    headlines: z.array(z.string()),
-    bestHeadline: z.string(),
-    text: z.string(),
-  }),
-  outputSchema: outputSchema,
-  execute: async ({ inputData }) => {
-    console.log(
-      "🔄 [WORKFLOW] Format JSON-RPC Response Step - Input:",
-      JSON.stringify(inputData, null, 2)
-    );
-
-    const { headlines, bestHeadline, text } = inputData;
-    const timestamp = new Date().toISOString();
-    const taskId = `task-${Date.now()}`;
-    const messageId = `msg-${Date.now()}`;
-    const artifactId = `artifact-${Date.now()}`;
-    const dataArtifactId = `data-${Date.now()}`;
+    const bestHeadline = headlines[0];
 
     // ✅ Format headlines with numbers and line breaks
     const formattedHeadlines = headlines
       .map((headline, index) => `${index + 1}. ${headline}`)
       .join("\n\n");
 
-    const responseText = `Here are ${headlines.length} LinkedIn headline options for "${text}":\n\n${formattedHeadlines}\n\n💡 Recommended: ${bestHeadline}`;
+    const formattedText = `Here are ${headlines.length} LinkedIn headline options for "${text}":\n\n${formattedHeadlines}\n\n💡 Recommended: ${bestHeadline}`;
 
     const output = {
-      jsonrpc: "2.0" as const,
-      id: "request-001", // This will be replaced with the actual request ID
-      result: {
-        id: taskId,
-        contextId: `context-${Date.now()}`,
-        status: {
-          state: "completed" as const,
-          timestamp: timestamp,
-          message: {
-            messageId: messageId,
-            role: "agent" as const,
-            parts: [
-              {
-                kind: "text" as const,
-                text: responseText,
-              },
-            ],
-            kind: "message" as const,
-          },
-        },
-        artifacts: [
-          {
-            artifactId: artifactId,
-            name: "linkedinHeadlineResponse",
-            parts: [
-              {
-                kind: "text" as const,
-                text: responseText,
-              },
-            ],
-          },
-          {
-            artifactId: dataArtifactId,
-            name: "HeadlineResults",
-            parts: [
-              {
-                kind: "data" as const,
-                data: {
-                  bestHeadline: bestHeadline,
-                  allHeadlines: headlines,
-                  topic: text,
-                  generatedAt: timestamp,
-                },
-              },
-            ],
-          },
-        ],
-      },
+      headlines,
+      bestHeadline,
+      formattedText,
     };
 
     console.log(
-      "✅ [WORKFLOW] Format JSON-RPC Response Step - Output:",
+      "✅ [WORKFLOW] Select and Format Step - Output:",
       JSON.stringify(output, null, 2)
     );
     return output;
@@ -245,6 +123,5 @@ export const linkedinHeadlineWorkflow = createWorkflow({
   outputSchema: outputSchema,
 })
   .then(generateHeadlinesStep)
-  .then(selectBestHeadlineStep)
-  .then(formatJsonRpcResponseStep)
+  .then(selectAndFormatStep)
   .commit();
