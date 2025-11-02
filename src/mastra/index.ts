@@ -145,7 +145,7 @@ export const mastra = new Mastra({
               if (!userText) {
                 for (const part of message.parts) {
                   if (part.kind === "data" && Array.isArray(part.data)) {
-                    // Look for text in data array
+                    // Look for text in data array - find the longest one (usually contains the actual message)
                     const dataTexts = part.data
                       .filter(
                         (item: any) =>
@@ -154,7 +154,11 @@ export const mastra = new Mastra({
                       .map((item: any) => item.text.trim());
 
                     if (dataTexts.length > 0) {
-                      userText = dataTexts[0];
+                      // Take the longest text (likely the actual message with HTML)
+                      userText = dataTexts.reduce(
+                        (longest: string, current: string) =>
+                          current.length > longest.length ? current : longest
+                      );
                       break;
                     }
                   }
