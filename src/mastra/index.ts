@@ -165,18 +165,29 @@ export const mastra = new Mastra({
                 JSON.stringify(workflowResult, null, 2)
               );
 
+              console.log(
+                "🔍 [DEBUG] workflowResult.status:",
+                workflowResult.status
+              );
+              console.log(
+                "🔍 [DEBUG] workflowResult.result:",
+                JSON.stringify((workflowResult as any).result, null, 2)
+              );
+
               // Check if workflowResult has the expected JSON-RPC format
               // If not, we need to extract it from the result property
               let finalResult;
 
               if ((workflowResult as any).jsonrpc === "2.0") {
                 // Already in correct format
+                console.log("✅ [WEBHOOK] Found JSON-RPC at top level");
                 finalResult = workflowResult;
               } else if (
                 workflowResult.status === "success" &&
                 (workflowResult as any).result?.jsonrpc === "2.0"
               ) {
                 // Result is nested
+                console.log("✅ [WEBHOOK] Found JSON-RPC nested in result");
                 finalResult = (workflowResult as any).result;
               } else if (workflowResult.status === "success") {
                 // Need to construct the response from workflow output
