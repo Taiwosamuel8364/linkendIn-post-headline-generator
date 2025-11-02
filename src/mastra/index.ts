@@ -121,7 +121,7 @@ export const mastra = new Mastra({
                 );
               }
 
-              // Extract text - get the last non-empty text part
+              // Extract text - get the FIRST non-empty text part (current message)
               const textParts = message.parts
                 .filter(
                   (part: any) =>
@@ -129,7 +129,7 @@ export const mastra = new Mastra({
                 )
                 .map((part: any) => part.text.trim());
 
-              const userText = textParts[textParts.length - 1] || "";
+              const userText = textParts[0] || "";
 
               if (!userText) {
                 console.log(
