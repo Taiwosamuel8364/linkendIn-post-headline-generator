@@ -17,10 +17,47 @@ const inputSchema = z.union([
   }),
 ]);
 
-// ✅ Output schema for the final workflow - matches what Telex expects
+// ✅ Output schema matching JSON-RPC 2.0 format
 const outputSchema = z.object({
-  message: z.string(), // ✅ Telex expects this key
-  headlines: z.array(z.string()).optional(), // Include all headlines too
+  jsonrpc: z.literal("2.0"),
+  id: z.string(),
+  result: z.object({
+    id: z.string(),
+    contextId: z.string().optional(),
+    status: z.object({
+      state: z.enum(["completed", "processing", "failed"]),
+      timestamp: z.string(),
+      message: z.object({
+        messageId: z.string(),
+        role: z.literal("agent"),
+        parts: z.array(
+          z.object({
+            kind: z.literal("text"),
+            text: z.string(),
+          })
+        ),
+        kind: z.literal("message"),
+      }),
+    }),
+    artifacts: z.array(
+      z.object({
+        artifactId: z.string(),
+        name: z.string(),
+        parts: z.array(
+          z.union([
+            z.object({
+              kind: z.literal("text"),
+              text: z.string(),
+            }),
+            z.object({
+              kind: z.literal("data"),
+              data: z.any(),
+            }),
+          ])
+        ),
+      })
+    ),
+  }),
 });
 
 // Step 1: Generate headlines
@@ -35,7 +72,10 @@ const generateHeadlinesStep = createStep({
     tone: z.enum(["professional", "casual", "inspirational", "educational"]),
   }),
   execute: async ({ inputData }) => {
-    console.log("🔄 [WORKFLOW] Generate Headlines Step - Input:", inputData);
+    console.log(
+      "🔄 [WORKFLOW] Generate Headlines Step - Input:",
+      JSON.stringify(inputData, null, 2)
+    );
 
     // ✅ Normalize input (handles both string and object cases)
     const { text, targetAudience, tone } =
@@ -63,7 +103,10 @@ const generateHeadlinesStep = createStep({
       tone: tone || ("professional" as const),
     };
 
-    console.log("✅ [WORKFLOW] Generate Headlines Step - Output:", output);
+    console.log(
+      "✅ [WORKFLOW] Generate Headlines Step - Output:",
+      JSON.stringify(output, null, 2)
+    );
     return output;
   },
 });
@@ -81,52 +124,120 @@ const selectBestHeadlineStep = createStep({
   outputSchema: z.object({
     headlines: z.array(z.string()),
     bestHeadline: z.string(),
+    text: z.string(),
   }),
   execute: async ({ inputData }) => {
-    console.log("🔄 [WORKFLOW] Select Best Headline Step - Input:", inputData);
+    console.log(
+      "🔄 [WORKFLOW] Select Best Headline Step - Input:",
+      JSON.stringify(inputData, null, 2)
+    );
 
-    const { headlines } = inputData;
+    const { headlines, text } = inputData;
     const bestHeadline = headlines[0]; // could add AI ranking later
 
     const output = {
       headlines,
       bestHeadline,
+      text,
     };
 
-    console.log("✅ [WORKFLOW] Select Best Headline Step - Output:", output);
+    console.log(
+      "✅ [WORKFLOW] Select Best Headline Step - Output:",
+      JSON.stringify(output, null, 2)
+    );
     return output;
   },
 });
 
-// Step 3: Format result for Telex display
-const returnHeadlineStep = createStep({
-  id: "return-best-headline",
-  description: "Return the best headline in a format Telex can display",
+// Step 3: Format result in JSON-RPC 2.0 format
+const formatJsonRpcResponseStep = createStep({
+  id: "format-jsonrpc-response",
+  description: "Format the result in JSON-RPC 2.0 format for Telex",
   inputSchema: z.object({
     headlines: z.array(z.string()),
     bestHeadline: z.string(),
+    text: z.string(),
   }),
   outputSchema: outputSchema,
   execute: async ({ inputData }) => {
-    console.log("🔄 [WORKFLOW] Return Best Headline Step - Input:", inputData);
+    console.log(
+      "🔄 [WORKFLOW] Format JSON-RPC Response Step - Input:",
+      JSON.stringify(inputData, null, 2)
+    );
+
+    const { headlines, bestHeadline, text } = inputData;
+    const timestamp = new Date().toISOString();
+    const taskId = `task-${Date.now()}`;
+    const messageId = `msg-${Date.now()}`;
+    const artifactId = `artifact-${Date.now()}`;
+    const dataArtifactId = `data-${Date.now()}`;
 
     const output = {
-      message: inputData.bestHeadline,
-      headlines: inputData.headlines,
+      jsonrpc: "2.0" as const,
+      id: "request-001",
+      result: {
+        id: taskId,
+        contextId: `context-${Date.now()}`,
+        status: {
+          state: "completed" as const,
+          timestamp: timestamp,
+          message: {
+            messageId: messageId,
+            role: "agent" as const,
+            parts: [
+              {
+                kind: "text" as const,
+                text: bestHeadline,
+              },
+            ],
+            kind: "message" as const,
+          },
+        },
+        artifacts: [
+          {
+            artifactId: artifactId,
+            name: "linkedinHeadlineResponse",
+            parts: [
+              {
+                kind: "text" as const,
+                text: bestHeadline,
+              },
+            ],
+          },
+          {
+            artifactId: dataArtifactId,
+            name: "HeadlineResults",
+            parts: [
+              {
+                kind: "data" as const,
+                data: {
+                  bestHeadline: bestHeadline,
+                  allHeadlines: headlines,
+                  topic: text,
+                  generatedAt: timestamp,
+                },
+              },
+            ],
+          },
+        ],
+      },
     };
 
-    console.log("✅ [WORKFLOW] Return Best Headline Step - Output:", output);
+    console.log(
+      "✅ [WORKFLOW] Format JSON-RPC Response Step - Output:",
+      JSON.stringify(output, null, 2)
+    );
     return output;
   },
 });
 
 // ✅ Create the workflow
 export const linkedinHeadlineWorkflow = createWorkflow({
-  id: "LnkdHdlGenX5A3pQ", // 🔗 must match your JSON workflow ID
+  id: "linkedin-headline-generator",
   inputSchema: inputSchema,
   outputSchema: outputSchema,
 })
   .then(generateHeadlinesStep)
   .then(selectBestHeadlineStep)
-  .then(returnHeadlineStep)
+  .then(formatJsonRpcResponseStep)
   .commit();

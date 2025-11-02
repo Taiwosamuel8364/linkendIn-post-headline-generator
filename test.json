@@ -1,4 +1,22 @@
 {
-  "text": "AI in Healthcare",
-  "tone": "professional"
+  "jsonrpc": "2.0",
+  "id": "request-001",
+  "method": "message/send",
+  "params": {
+    "message": {
+      "kind": "message",
+      "role": "user",
+      "parts": [
+        {
+          "kind": "text",
+          "text": "Building a SaaS product"
+        }
+      ],
+      "messageId": "msg-001",
+      "taskId": "task-001"
+    },
+    "configuration": {
+      "blocking": true
+    }
+  }
 }

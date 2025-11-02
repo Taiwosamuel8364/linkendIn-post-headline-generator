@@ -34,32 +34,25 @@ export const mastra = new Mastra({
           return async (request: any) => {
             const timestamp = new Date().toISOString();
             console.log(`\n${"=".repeat(60)}`);
-            console.log(`📨 [WEBHOOK] New request received at ${timestamp}`);
+            console.log(
+              `📨 [WEBHOOK] New A2A request received at ${timestamp}`
+            );
             console.log(`${"=".repeat(60)}`);
 
             try {
-              // Try to parse the body in different ways
+              // Parse the JSON-RPC 2.0 request
               let body;
-
-              console.log("Request type:", typeof request);
-
-              // Try to get the raw request if it's wrapped
               const rawReq = request.raw || request.req || request;
 
-              // Method 1: Try request.text() first (Hono-style)
               if (typeof rawReq.text === "function") {
                 console.log("Using request.text()");
                 const textBody = await rawReq.text();
-                console.log("Raw text body:", textBody);
+                console.log("📥 [WEBHOOK] Raw text body:", textBody);
                 body = JSON.parse(textBody);
-              }
-              // Method 2: Try request.body (if it exists)
-              else if (rawReq.body) {
+              } else if (rawReq.body) {
                 console.log("Using request.body");
                 body = rawReq.body;
-              }
-              // Method 3: Try reading from a stream
-              else if (rawReq.on) {
+              } else if (rawReq.on) {
                 console.log("Using stream reading");
                 body = await new Promise((resolve, reject) => {
                   let data = "";
@@ -78,20 +71,21 @@ export const mastra = new Mastra({
               }
 
               console.log(
-                "📥 [WEBHOOK] Parsed request body:",
+                "📥 [WEBHOOK] Parsed JSON-RPC request:",
                 JSON.stringify(body, null, 2)
               );
 
-              if (!body || !body.text) {
-                console.log(
-                  "❌ [WEBHOOK] Error: Missing required field 'text'"
-                );
-                console.log("Received body:", JSON.stringify(body, null, 2));
+              // Validate JSON-RPC 2.0 format
+              if (!body || body.jsonrpc !== "2.0") {
+                console.log("❌ [WEBHOOK] Error: Invalid JSON-RPC 2.0 request");
                 return new Response(
                   JSON.stringify({
-                    error: "Missing required field: text",
-                    hint: 'Send POST request with JSON body: {"text":"Your Topic","tone":"professional"}',
-                    received: body,
+                    jsonrpc: "2.0",
+                    id: body?.id || null,
+                    error: {
+                      code: -32600,
+                      message: "Invalid Request - must be JSON-RPC 2.0",
+                    },
                   }),
                   {
                     status: 400,
@@ -100,12 +94,62 @@ export const mastra = new Mastra({
                 );
               }
 
-              console.log("🚀 [WEBHOOK] Starting workflow execution...");
+              // Extract text from message parts
+              const message = body.params?.message;
+              if (!message || !message.parts || !Array.isArray(message.parts)) {
+                console.log("❌ [WEBHOOK] Error: Missing message parts");
+                return new Response(
+                  JSON.stringify({
+                    jsonrpc: "2.0",
+                    id: body.id,
+                    error: {
+                      code: -32602,
+                      message: "Invalid params - missing message.parts",
+                    },
+                  }),
+                  {
+                    status: 400,
+                    headers: { "Content-Type": "application/json" },
+                  }
+                );
+              }
 
-              // Get the workflow and execute it
+              // Extract text from the first text part
+              const textPart = message.parts.find(
+                (part: any) => part.kind === "text"
+              );
+              if (!textPart || !textPart.text) {
+                console.log(
+                  "❌ [WEBHOOK] Error: No text part found in message"
+                );
+                return new Response(
+                  JSON.stringify({
+                    jsonrpc: "2.0",
+                    id: body.id,
+                    error: {
+                      code: -32602,
+                      message: "Invalid params - no text part in message",
+                    },
+                  }),
+                  {
+                    status: 400,
+                    headers: { "Content-Type": "application/json" },
+                  }
+                );
+              }
+
+              const userText = textPart.text;
+              console.log(`💬 [WEBHOOK] Extracted user text: "${userText}"`);
+              console.log(`� [WEBHOOK] Task ID: ${message.taskId}`);
+              console.log(`📧 [WEBHOOK] Message ID: ${message.messageId}`);
+              console.log(`�🚀 [WEBHOOK] Starting workflow execution...`);
+
+              // Execute the workflow with the extracted text
               const workflow = mastra.getWorkflow("linkedinHeadlineWorkflow");
               const run = await workflow.createRunAsync();
-              const result = await run.start({ inputData: body });
+              const result = await run.start({
+                inputData: userText, // Pass the text directly
+              });
 
               console.log(
                 "✅ [WEBHOOK] Workflow execution completed successfully"
@@ -116,6 +160,7 @@ export const mastra = new Mastra({
               );
               console.log(`${"=".repeat(60)}\n`);
 
+              // The workflow already returns JSON-RPC 2.0 format
               return new Response(JSON.stringify(result), {
                 status: 200,
                 headers: { "Content-Type": "application/json" },
@@ -138,9 +183,14 @@ export const mastra = new Mastra({
 
               return new Response(
                 JSON.stringify({
-                  error: "Failed to execute workflow",
-                  message:
-                    error instanceof Error ? error.message : String(error),
+                  jsonrpc: "2.0",
+                  id: null,
+                  error: {
+                    code: -32603,
+                    message: "Internal error",
+                    data:
+                      error instanceof Error ? error.message : String(error),
+                  },
                 }),
                 {
                   status: 500,
