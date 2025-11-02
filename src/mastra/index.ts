@@ -140,9 +140,12 @@ export const mastra = new Mastra({
 
               const userText = textPart.text;
               const requestId = body.id; // Capture the request ID
+              const taskId = message.taskId;
+              const messageId = message.messageId;
+
               console.log(`💬 [WEBHOOK] Extracted user text: "${userText}"`);
-              console.log(`📋 [WEBHOOK] Task ID: ${message.taskId}`);
-              console.log(`📧 [WEBHOOK] Message ID: ${message.messageId}`);
+              console.log(`📋 [WEBHOOK] Task ID: ${taskId}`);
+              console.log(`📧 [WEBHOOK] Message ID: ${messageId}`);
               console.log(`🚀 [WEBHOOK] Starting workflow execution...`);
 
               // Execute the workflow with the extracted text
@@ -157,10 +160,92 @@ export const mastra = new Mastra({
                 JSON.stringify(workflowResult, null, 2)
               );
 
+              // Check if workflowResult has the expected JSON-RPC format
+              // If not, we need to extract it from the result property
+              let finalResult;
+
+              if ((workflowResult as any).jsonrpc === "2.0") {
+                // Already in correct format
+                finalResult = workflowResult;
+              } else if (
+                workflowResult.status === "success" &&
+                (workflowResult as any).result?.jsonrpc === "2.0"
+              ) {
+                // Result is nested
+                finalResult = (workflowResult as any).result;
+              } else if (workflowResult.status === "success") {
+                // Need to construct the response from workflow output
+                console.log(
+                  "⚠️ [WEBHOOK] Workflow didn't return JSON-RPC format, constructing response"
+                );
+
+                const timestamp = new Date().toISOString();
+                const workflowOutput = (workflowResult as any).result || {};
+                const bestHeadline =
+                  workflowOutput.bestHeadline ||
+                  workflowOutput.message ||
+                  "LinkedIn Headline Generated";
+                const allHeadlines = workflowOutput.headlines || [bestHeadline];
+
+                finalResult = {
+                  jsonrpc: "2.0",
+                  id: requestId,
+                  result: {
+                    id: taskId,
+                    contextId: `context-${Date.now()}`,
+                    status: {
+                      state: "completed",
+                      timestamp: timestamp,
+                      message: {
+                        messageId: `response-${Date.now()}`,
+                        role: "agent",
+                        parts: [
+                          {
+                            kind: "text",
+                            text: bestHeadline,
+                          },
+                        ],
+                        kind: "message",
+                      },
+                    },
+                    artifacts: [
+                      {
+                        artifactId: `artifact-${Date.now()}`,
+                        name: "linkedinHeadlineResponse",
+                        parts: [
+                          {
+                            kind: "text",
+                            text: bestHeadline,
+                          },
+                        ],
+                      },
+                      {
+                        artifactId: `data-${Date.now()}`,
+                        name: "HeadlineResults",
+                        parts: [
+                          {
+                            kind: "data",
+                            data: {
+                              bestHeadline: bestHeadline,
+                              allHeadlines: allHeadlines,
+                              topic: userText,
+                              generatedAt: timestamp,
+                            },
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                };
+              } else {
+                // Workflow failed
+                throw new Error("Workflow execution failed");
+              }
+
               // Update the response with the correct request ID from the incoming request
               const response = {
-                ...workflowResult,
-                id: requestId, // Use the request ID from Telex
+                ...finalResult,
+                id: requestId, // Ensure we use the request ID from Telex
               };
 
               console.log(
