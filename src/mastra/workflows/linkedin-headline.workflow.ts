@@ -113,14 +113,62 @@ const generateHeadlinesStep = createStep({
 
     console.log(`📝 [WORKFLOW] Extracted topic: "${mainTopic}"`);
 
-    // ✅ Generate SHORT, catchy LinkedIn-style headlines
-    const headlines = [
-      `🎉 Just Completed: ${mainTopic}`,
-      `${mainTopic} 🚀`,
-      `Excited to Share: ${mainTopic}`,
-      `${mainTopic} — My Latest Achievement`,
-      `Key Learnings from ${mainTopic}`,
-    ];
+    // ✅ Generate UNIQUE, RELEVANT headlines based on content analysis
+    // Analyze the content to understand what it's about
+    const lowerContent = postContent.toLowerCase();
+    let headlines = [];
+
+    // Check content type and generate appropriate headlines
+    if (
+      lowerContent.includes("completed") ||
+      lowerContent.includes("finished") ||
+      lowerContent.includes("built")
+    ) {
+      // Achievement-based headlines
+      headlines = [
+        `🎉 ${mainTopic}`,
+        `Proud to Share: ${mainTopic}`,
+        `From Start to Finish — ${mainTopic}`,
+        `Achievement Unlocked: ${mainTopic}`,
+        `${mainTopic} 🚀`,
+      ];
+    } else if (
+      lowerContent.includes("trump") ||
+      lowerContent.includes("nigeria") ||
+      lowerContent.includes("government") ||
+      lowerContent.includes("relationship")
+    ) {
+      // News/Analysis headlines
+      headlines = [
+        `Breaking: ${mainTopic}`,
+        `${mainTopic} — What This Means`,
+        `Analysis: ${mainTopic}`,
+        `${mainTopic} 🌍`,
+        `Understanding the Impact: ${mainTopic}`,
+      ];
+    } else if (
+      lowerContent.includes("excited") ||
+      lowerContent.includes("thrilled") ||
+      lowerContent.includes("happy")
+    ) {
+      // Excitement-based headlines
+      headlines = [
+        `🎉 ${mainTopic}`,
+        `${mainTopic} 🚀`,
+        `Big News: ${mainTopic}`,
+        `Celebrating: ${mainTopic}`,
+        `${mainTopic} — A Milestone!`,
+      ];
+    } else {
+      // General/Professional headlines
+      headlines = [
+        `${mainTopic}`,
+        `Insights: ${mainTopic}`,
+        `${mainTopic} — Key Takeaways`,
+        `Reflecting on: ${mainTopic}`,
+        `${mainTopic} 💡`,
+      ];
+    }
 
     const output = {
       headlines,
