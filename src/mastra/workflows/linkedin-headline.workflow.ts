@@ -77,32 +77,39 @@ const generateHeadlinesStep = createStep({
       .replace(/\s+/g, " ") // Normalize whitespace
       .trim();
 
-    // ✅ Extract main achievement/topic - take ONLY the complete phrase without trailing fragments
+    // ✅ Extract the actual post content (strip instruction like "generate headline for this drafted post:")
+    let postContent = cleanText;
+
+    // Check if this is a "generate headline" request and extract the actual post
+    const instructionPattern =
+      /(?:generate.*?headline.*?for.*?(?:drafted )?post:?\s*)(.*)/is;
+    const instructionMatch = cleanText.match(instructionPattern);
+
+    if (instructionMatch && instructionMatch[1]) {
+      postContent = instructionMatch[1].trim();
+    }
+
+    // ✅ Extract main topic from the post content (first sentence or key phrase)
     let mainTopic = "";
 
-    // Try to find the key achievement phrase and extract it cleanly
-    const achievementPattern =
-      /(?:completed|built|shipped|created|launched|finished)\s+([^.!?]+?)(?:\.|!|\?|🎉|🚀|💪|For |This |which |Grateful)/i;
-    const achievementMatch = cleanText.match(achievementPattern);
-
-    if (achievementMatch && achievementMatch[1]) {
-      mainTopic = achievementMatch[1].trim();
+    // Try to get first complete sentence or first 100 characters
+    const sentences = postContent.split(/[.!?]\s+/);
+    if (sentences.length > 0 && sentences[0]) {
+      // Take first sentence but cap at reasonable length for headline
+      mainTopic =
+        sentences[0].length > 100
+          ? sentences[0].substring(0, 100).trim() + "..."
+          : sentences[0].trim();
     } else {
-      // Fall back: take first sentence up to first emoji or stopping phrase
-      const firstPart = cleanText.split(/[.!?]/)[0];
-      const stopWords = /(?:For |This |which |Grateful |I'm |I am)/i;
-      const stopMatch = firstPart.match(stopWords);
-
-      if (stopMatch && stopMatch.index) {
-        mainTopic = firstPart.substring(0, stopMatch.index).trim();
-      } else {
-        mainTopic =
-          firstPart.length > 80 ? firstPart.substring(0, 80).trim() : firstPart;
-      }
-
-      // Remove trailing emojis
-      mainTopic = mainTopic.replace(/[🎉🚀💪]+\s*$/g, "").trim();
+      // Fallback: take first 100 chars
+      mainTopic =
+        postContent.length > 100
+          ? postContent.substring(0, 100).trim() + "..."
+          : postContent.trim();
     }
+
+    // Remove trailing emojis
+    mainTopic = mainTopic.replace(/[🎉🚀💪]+\s*$/g, "").trim();
 
     console.log(`📝 [WORKFLOW] Extracted topic: "${mainTopic}"`);
 

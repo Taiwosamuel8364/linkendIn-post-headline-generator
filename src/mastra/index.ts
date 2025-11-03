@@ -129,7 +129,7 @@ export const mastra = new Mastra({
               // Extract text - look in both text and data parts
               let userText = "";
 
-              // First try to find non-empty text parts
+              // First try to find non-empty text parts (take the LAST one - newest message)
               const textParts = message.parts
                 .filter(
                   (part: any) =>
@@ -138,14 +138,14 @@ export const mastra = new Mastra({
                 .map((part: any) => part.text.trim());
 
               if (textParts.length > 0) {
-                userText = textParts[0];
+                userText = textParts[textParts.length - 1]; // Take LAST (newest)
               }
 
               // If no text found, look in data parts
               if (!userText) {
                 for (const part of message.parts) {
                   if (part.kind === "data" && Array.isArray(part.data)) {
-                    // Look for text in data array - find the one with HTML tags or "generate a headline"
+                    // Look for text in data array - take the LAST user message (newest)
                     const dataTexts = part.data
                       .filter(
                         (item: any) =>
@@ -163,11 +163,8 @@ export const mastra = new Mastra({
                       );
 
                       if (userMessages.length > 0) {
-                        // Take the longest user message (contains HTML post content)
-                        userText = userMessages.reduce(
-                          (longest: string, current: string) =>
-                            current.length > longest.length ? current : longest
-                        );
+                        // Take the LAST user message (newest message from user)
+                        userText = userMessages[userMessages.length - 1];
                         break;
                       }
                     }
