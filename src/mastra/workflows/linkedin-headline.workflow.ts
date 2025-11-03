@@ -77,24 +77,34 @@ const generateHeadlinesStep = createStep({
       .replace(/\s+/g, " ") // Normalize whitespace
       .trim();
 
-    // ✅ Extract main achievement/topic - take the first complete sentence or phrase
+    // ✅ Extract main achievement/topic - take ONLY the complete phrase without trailing fragments
     let mainTopic = "";
-    const firstSentence = cleanText.split(/[.!?]/)[0].trim();
 
-    // Try to find a key achievement phrase
-    const achievementMatch = firstSentence.match(
-      /(?:completed|built|shipped|created|launched|finished)\s+([^,]+)/i
-    );
+    // Try to find the key achievement phrase and extract it cleanly
+    const achievementPattern =
+      /(?:completed|built|shipped|created|launched|finished)\s+([^.!?]+?)(?:\.|!|\?|🎉|🚀|💪|For |This |which |Grateful)/i;
+    const achievementMatch = cleanText.match(achievementPattern);
 
     if (achievementMatch && achievementMatch[1]) {
       mainTopic = achievementMatch[1].trim();
     } else {
-      // Fall back to first sentence, but limit to reasonable length
-      mainTopic =
-        firstSentence.length > 80
-          ? firstSentence.substring(0, 80).trim()
-          : firstSentence;
+      // Fall back: take first sentence up to first emoji or stopping phrase
+      const firstPart = cleanText.split(/[.!?]/)[0];
+      const stopWords = /(?:For |This |which |Grateful |I'm |I am)/i;
+      const stopMatch = firstPart.match(stopWords);
+
+      if (stopMatch && stopMatch.index) {
+        mainTopic = firstPart.substring(0, stopMatch.index).trim();
+      } else {
+        mainTopic =
+          firstPart.length > 80 ? firstPart.substring(0, 80).trim() : firstPart;
+      }
+
+      // Remove trailing emojis
+      mainTopic = mainTopic.replace(/[🎉🚀💪]+\s*$/g, "").trim();
     }
+
+    console.log(`📝 [WORKFLOW] Extracted topic: "${mainTopic}"`);
 
     // ✅ Generate SHORT, catchy LinkedIn-style headlines
     const headlines = [
@@ -182,9 +192,12 @@ const formatJsonRpcResponseStep = createStep({
     const artifactId = `artifact-${Date.now()}`;
     const dataArtifactId = `data-${Date.now()}`;
 
-    // ✅ Create response text with all headlines
-    const headlinesList = headlines.join("\n");
-    const responseText = `Here are ${headlines.length} LinkedIn headline options for "${text}":\n\n${headlinesList}\n\n💡 Recommended: ${bestHeadline}`;
+    // ✅ Create numbered headline list for better readability
+    const numberedHeadlines = headlines
+      .map((headline, index) => `${index + 1}. ${headline}`)
+      .join("\n\n");
+
+    const responseText = `Here are ${headlines.length} LinkedIn headline options:\n\n${numberedHeadlines}\n\n💡 Recommended: ${bestHeadline}`;
 
     const output = {
       jsonrpc: "2.0" as const,
