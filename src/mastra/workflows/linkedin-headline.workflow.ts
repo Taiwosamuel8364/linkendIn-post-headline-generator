@@ -77,15 +77,24 @@ const generateHeadlinesStep = createStep({
       .replace(/\s+/g, " ") // Normalize whitespace
       .trim();
 
-    // ✅ Extract main achievement/topic (look for key phrases)
-    const mainTopic =
-      cleanText.match(
-        /(?:completed|built|shipped|created|launched)\s+([^.,!?]{10,80})/i
-      )?.[1] ||
-      cleanText
-        .substring(0, 60)
-        .split(/[.,!?]/)[0]
-        .trim();
+    // ✅ Extract main achievement/topic - take the first complete sentence or phrase
+    let mainTopic = "";
+    const firstSentence = cleanText.split(/[.!?]/)[0].trim();
+
+    // Try to find a key achievement phrase
+    const achievementMatch = firstSentence.match(
+      /(?:completed|built|shipped|created|launched|finished)\s+([^,]+)/i
+    );
+
+    if (achievementMatch && achievementMatch[1]) {
+      mainTopic = achievementMatch[1].trim();
+    } else {
+      // Fall back to first sentence, but limit to reasonable length
+      mainTopic =
+        firstSentence.length > 80
+          ? firstSentence.substring(0, 80).trim()
+          : firstSentence;
+    }
 
     // ✅ Generate SHORT, catchy LinkedIn-style headlines
     const headlines = [
