@@ -1,5 +1,6 @@
 import { createWorkflow, createStep } from "@mastra/core/workflows";
 import { z } from "zod";
+import { linkedinAgent } from "../agents/linkedin-agent";
 
 // ✅ Input schema now supports both plain text and object input
 const inputSchema = z.union([
@@ -122,62 +123,48 @@ const generateHeadlinesStep = createStep({
 
     console.log(`📝 [WORKFLOW] Extracted topic: "${mainTopic}"`);
 
-    // ✅ Generate UNIQUE, RELEVANT headlines based on content analysis
-    // Analyze the content to understand what it's about
-    const lowerContent = postContent.toLowerCase();
-    let headlines = [];
+    // ✅ Use AI Agent to generate creative, relevant headlines
+    console.log("🤖 [WORKFLOW] Calling AI agent to generate headlines...");
 
-    // Check content type and generate appropriate headlines
-    if (
-      lowerContent.includes("completed") ||
-      lowerContent.includes("finished") ||
-      lowerContent.includes("built")
-    ) {
-      // Achievement-based headlines
-      headlines = [
-        `🎉 ${mainTopic}`,
-        `Proud to Share: ${mainTopic}`,
-        `From Start to Finish — ${mainTopic}`,
-        `Achievement Unlocked: ${mainTopic}`,
-        `${mainTopic} 🚀`,
-      ];
-    } else if (
-      lowerContent.includes("trump") ||
-      lowerContent.includes("nigeria") ||
-      lowerContent.includes("government") ||
-      lowerContent.includes("relationship")
-    ) {
-      // News/Analysis headlines
-      headlines = [
-        `Breaking: ${mainTopic}`,
-        `${mainTopic} — What This Means`,
-        `Analysis: ${mainTopic}`,
-        `${mainTopic} 🌍`,
-        `Understanding the Impact: ${mainTopic}`,
-      ];
-    } else if (
-      lowerContent.includes("excited") ||
-      lowerContent.includes("thrilled") ||
-      lowerContent.includes("happy")
-    ) {
-      // Excitement-based headlines
-      headlines = [
-        `🎉 ${mainTopic}`,
-        `${mainTopic} 🚀`,
-        `Big News: ${mainTopic}`,
-        `Celebrating: ${mainTopic}`,
-        `${mainTopic} — A Milestone!`,
-      ];
-    } else {
-      // General/Professional headlines
-      headlines = [
-        `${mainTopic}`,
-        `Insights: ${mainTopic}`,
-        `${mainTopic} — Key Takeaways`,
-        `Reflecting on: ${mainTopic}`,
-        `${mainTopic} 💡`,
-      ];
+    const prompt = `Generate exactly 5 compelling LinkedIn post headlines for the following content. Make them diverse, engaging, and professional.
+
+Post content:
+${postContent}
+
+Requirements:
+- Create 5 DIFFERENT headline styles (not just variations of the same headline)
+- Keep each headline between 40-100 characters
+- Make them attention-grabbing and professional
+- Use relevant emojis sparingly (max 1-2 per headline)
+- Include diverse approaches: question-based, statement, insight, data-driven, etc.
+- Focus on the key message and value proposition
+
+Return ONLY the 5 headlines, one per line, without numbers or bullet points.`;
+
+    const aiResponse = await linkedinAgent.generate(prompt);
+
+    console.log("🤖 [WORKFLOW] AI agent response:", aiResponse.text);
+
+    // Parse AI response into headlines array
+    const headlines = aiResponse.text
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0 && !line.match(/^[0-9]+\./)) // Remove empty lines and numbers
+      .slice(0, 5); // Take only first 5
+
+    // Fallback if AI didn't return 5 headlines
+    if (headlines.length < 5) {
+      console.warn(
+        "⚠️ [WORKFLOW] AI returned fewer than 5 headlines, adding fallbacks"
+      );
+      while (headlines.length < 5) {
+        headlines.push(`${mainTopic} 💡`);
+      }
     }
+
+    console.log(
+      `✅ [WORKFLOW] Generated ${headlines.length} headlines from AI`
+    );
 
     const output = {
       headlines,
