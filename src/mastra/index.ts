@@ -145,7 +145,7 @@ export const mastra = new Mastra({
               if (!userText) {
                 for (const part of message.parts) {
                   if (part.kind === "data" && Array.isArray(part.data)) {
-                    // Look for text in data array - find the longest one (usually contains the actual message)
+                    // Look for text in data array - find the one with HTML tags or "generate a headline"
                     const dataTexts = part.data
                       .filter(
                         (item: any) =>
@@ -154,12 +154,22 @@ export const mastra = new Mastra({
                       .map((item: any) => item.text.trim());
 
                     if (dataTexts.length > 0) {
-                      // Take the longest text (likely the actual message with HTML)
-                      userText = dataTexts.reduce(
-                        (longest: string, current: string) =>
-                          current.length > longest.length ? current : longest
+                      // Filter: Exclude AI responses (those starting with "Here are" or "Generating")
+                      const userMessages = dataTexts.filter(
+                        (text: string) =>
+                          !text.startsWith("Here are") &&
+                          !text.startsWith("Generating") &&
+                          text.length > 10
                       );
-                      break;
+
+                      if (userMessages.length > 0) {
+                        // Take the longest user message (contains HTML post content)
+                        userText = userMessages.reduce(
+                          (longest: string, current: string) =>
+                            current.length > longest.length ? current : longest
+                        );
+                        break;
+                      }
                     }
                   }
                 }

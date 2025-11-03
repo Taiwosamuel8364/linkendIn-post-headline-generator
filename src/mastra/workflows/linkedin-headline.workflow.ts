@@ -70,19 +70,30 @@ const generateHeadlinesStep = createStep({
           }
         : inputData;
 
-    // ✅ Extract key topic (take first 100 chars or first sentence)
-    const shortTopic =
-      text.length > 100
-        ? text.substring(0, 100).split(/[.!?]/)[0].trim()
-        : text.split(/[.!?]/)[0].trim();
+    // ✅ Extract clean text from HTML and get key phrases
+    const cleanText = text
+      .replace(/<[^>]*>/g, " ") // Remove HTML tags
+      .replace(/&nbsp;/g, " ") // Remove &nbsp;
+      .replace(/\s+/g, " ") // Normalize whitespace
+      .trim();
 
-    // ✅ Generate LinkedIn-style headlines using the short topic
+    // ✅ Extract main achievement/topic (look for key phrases)
+    const mainTopic =
+      cleanText.match(
+        /(?:completed|built|shipped|created|launched)\s+([^.,!?]{10,80})/i
+      )?.[1] ||
+      cleanText
+        .substring(0, 60)
+        .split(/[.,!?]/)[0]
+        .trim();
+
+    // ✅ Generate SHORT, catchy LinkedIn-style headlines
     const headlines = [
-      `${shortTopic} 🚀`,
-      `Just shipped: ${shortTopic}`,
-      `Excited to share: ${shortTopic}`,
-      `${shortTopic} — my latest project`,
-      `Lessons learned from ${shortTopic}`,
+      `🎉 Just Completed: ${mainTopic}`,
+      `${mainTopic} 🚀`,
+      `Excited to Share: ${mainTopic}`,
+      `${mainTopic} — My Latest Achievement`,
+      `Key Learnings from ${mainTopic}`,
     ];
 
     const output = {
